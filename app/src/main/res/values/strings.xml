@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">PageStreak</string>
+    <string name="tagline">Two readers. Thirty minutes a day. One unbroken flame.</string>
+    <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="sign_in_subtitle">Sync your reading streak and weekly totals in real time between Narsinh Chad and Vishwaraj Jadeja.</string>
+    <string name="mobile_login_title">Enter Your Mobile ID</string>
+    <string name="mobile_login_subtitle">This private reading circle is restricted to two registered mobile numbers.</string>
+    <string name="mobile_number_label">10-Digit Mobile Number</string>
+    <string name="mobile_number_placeholder">e.g. 7203070830</string>
+    <string name="mobile_login_button">Continue to Circle</string>
+    <string name="error_invalid_mobile">Access denied. Only registered IDs 7203070830 (Narsinh Chad) and 7096295484 (Vishwaraj Jadeja) are allowed.</string>
+    <string name="nav_today">Today</string>
+    <string name="nav_weekly">Weekly</string>
+    <string name="nav_settings">Reminders</string>
+    <string name="action_log_reading">Log Reading</string>
+    <string name="goal_daily_target">30 min daily goal</string>
+    <string name="notification_channel_name">Daily Reading Reminders</string>
+    <string name="notification_channel_desc">Alerts you when you are behind on your 30-minute daily reading streak goal.</string>
+    <string name="reminder_title_behind">Keep your reading streak alive!</string>
+    <string name="cd_hero_illustration">Two open hardcover books on a sunlit reading desk</string>
+    <string name="cd_streak_flame">Reading streak flame</string>
+    <string name="cd_add_session">Log a reading session</string>
+    <string name="cd_delete_session">Delete reading session</string>
+    <string name="cd_switch_reader">Switch registered mobile ID</string>
+</resources>

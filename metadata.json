@@ -1,0 +1,6 @@
+{
+  "name": "PageStreak",
+  "description": "Shared daily reading streak tracker for two readers with 30-minute daily goals, cumulative session logging, weekly stats, and goal reminders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

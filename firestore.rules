@@ -1,0 +1,256 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL PRIMITIVE HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidReaderId(readerId) {
+      return readerId == 'reader_narsinh' || readerId == 'reader_vishwaraj';
+    }
+
+    function isValidDateKey(dateKey) {
+      return dateKey is string && dateKey.size() == 10 && dateKey.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isCircleMember(circleId) {
+      return exists(/databases/$(database)/documents/circles/$(circleId)) &&
+             request.auth.uid in get(/databases/$(database)/documents/circles/$(circleId)).data.memberUids;
+    }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+
+    function isValidUserAccount(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             isValidReaderId(data.activeReaderId) &&
+             data.reminderEnabled is bool &&
+             data.reminderHour is int && data.reminderHour >= 0 && data.reminderHour <= 23 &&
+             data.reminderMinute is int && data.reminderMinute >= 0 && data.reminderMinute <= 59 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCircle(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 60 &&
+             data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 4 &&
+             data.memberUids[0] is string &&
+             data.dailyGoalMinutes is int && data.dailyGoalMinutes >= 1 && data.dailyGoalMinutes <= 360 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidReaderProfile(data, readerId) {
+      return isValidReaderId(data.readerId) && data.readerId == readerId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.claimedByUid is string && data.claimedByUid.size() >= 1 && data.claimedByUid.size() <= 128 &&
+             data.currentStreak is int && data.currentStreak >= 0 && data.currentStreak <= 10000 &&
+             data.longestStreak is int && data.longestStreak >= 0 && data.longestStreak <= 10000 &&
+             data.todayMinutes is int && data.todayMinutes >= 0 && data.todayMinutes <= 1440 &&
+             isValidDateKey(data.todayDateKey) &&
+             data.weeklyMinutes is int && data.weeklyMinutes >= 0 && data.weeklyMinutes <= 10080 &&
+             data.totalMinutes is int && data.totalMinutes >= 0 && data.totalMinutes <= 10000000 &&
+             (!('lastBookTitle' in data) || data.lastBookTitle == null || (data.lastBookTitle is string && data.lastBookTitle.size() <= 100)) &&
+             data.dailyTotals is map && data.dailyTotals.size() <= 90 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidReadingSession(data, circleId) {
+      return data.circleId is string && data.circleId == circleId && data.circleId.size() >= 1 && data.circleId.size() <= 128 &&
+             isValidReaderId(data.readerId) &&
+             data.readerName is string && data.readerName.size() >= 1 && data.readerName.size() <= 60 &&
+             data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128 &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 4 &&
+             data.memberUids[0] is string &&
+             isValidDateKey(data.dateKey) &&
+             data.minutes is int && data.minutes >= 1 && data.minutes <= 720 &&
+             data.loggedTimeLabel is string && data.loggedTimeLabel.size() >= 1 && data.loggedTimeLabel.size() <= 20 &&
+             (!('bookTitle' in data) || data.bookTitle == null || (data.bookTitle is string && data.bookTitle.size() <= 100)) &&
+             (!('note' in data) || data.note == null || (data.note is string && data.note.size() <= 200)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // --- COLLECTION 1: Owner-Scoped User Accounts ---
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidUserAccount(incoming()) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'activeReaderId', 'reminderEnabled', 'reminderHour', 'reminderMinute', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'activeReaderId', 'reminderEnabled', 'reminderHour', 'reminderMinute', 'createdAt', 'updatedAt']);
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserAccount(incoming()) &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['activeReaderId', 'reminderEnabled', 'reminderHour', 'reminderMinute', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // --- COLLECTION 2: Shared Two-Person Reading Circle ---
+    match /circles/{circleId} {
+      allow get: if isSignedIn() &&
+                    isValidId(circleId) &&
+                    (resource == null || request.auth.uid in existing().memberUids || existing().memberUids.size() < 4);
+
+      allow list: if isSignedIn() && request.auth.uid in existing().memberUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(circleId) &&
+                       isValidCircle(incoming()) &&
+                       incoming().ownerId == request.auth.uid &&
+                       request.auth.uid in incoming().memberUids &&
+                       incoming().memberUids.size() == 1 &&
+                       incoming().keys().hasAll(['name', 'ownerId', 'memberUids', 'dailyGoalMinutes', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['name', 'ownerId', 'memberUids', 'dailyGoalMinutes', 'createdAt', 'updatedAt']);
+
+      allow update: if isSignedIn() &&
+                       isValidId(circleId) &&
+                       isValidCircle(incoming()) &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Action 1: Join circle (bounded to max 4 devices/accounts for the 2 readers)
+                         (
+                           existing().memberUids.size() < 4 &&
+                           !(request.auth.uid in existing().memberUids) &&
+                           incoming().memberUids.hasAll(existing().memberUids) &&
+                           request.auth.uid in incoming().memberUids &&
+                           incoming().memberUids.size() == existing().memberUids.size() + 1 &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'updatedAt'])
+                         ) ||
+                         // Action 2: Circle member updates circle display name
+                         (
+                           request.auth.uid in existing().memberUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(circleId) && existing().ownerId == request.auth.uid;
+
+      // --- COLLECTION 3: Two Fixed Reader Profiles (Parent-Gated) ---
+      match /readers/{readerId} {
+        allow get: if isSignedIn() &&
+                      isValidId(circleId) &&
+                      isValidReaderId(readerId) &&
+                      isCircleMember(circleId);
+
+        // Never list readers; client observes reader_narsinh and reader_vishwaraj directly by document ID
+        allow list: if false;
+
+        allow create: if isSignedIn() &&
+                         isValidId(circleId) &&
+                         isValidReaderId(readerId) &&
+                         isValidReaderProfile(incoming(), readerId) &&
+                         incoming().claimedByUid == request.auth.uid &&
+                         incoming().keys().hasAll(['readerId', 'displayName', 'claimedByUid', 'currentStreak', 'longestStreak', 'todayMinutes', 'todayDateKey', 'weeklyMinutes', 'totalMinutes', 'dailyTotals', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['readerId', 'displayName', 'claimedByUid', 'currentStreak', 'longestStreak', 'todayMinutes', 'todayDateKey', 'weeklyMinutes', 'totalMinutes', 'lastBookTitle', 'dailyTotals', 'createdAt', 'updatedAt']) &&
+                         isCircleMember(circleId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(circleId) &&
+                         isValidReaderId(readerId) &&
+                         isValidReaderProfile(incoming(), readerId) &&
+                         incoming().claimedByUid == request.auth.uid &&
+                         incoming().readerId == existing().readerId &&
+                         incoming().displayName == existing().displayName &&
+                         incoming().createdAt == existing().createdAt &&
+                         isCircleMember(circleId) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'claimedByUid',
+                           'currentStreak',
+                           'longestStreak',
+                           'todayMinutes',
+                           'todayDateKey',
+                           'weeklyMinutes',
+                           'totalMinutes',
+                           'lastBookTitle',
+                           'dailyTotals',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if false;
+      }
+
+      // --- COLLECTION 4: Individual Reading Sessions (Denormalized memberUids for O(1) list queries) ---
+      match /sessions/{sessionId} {
+        allow get: if isSignedIn() &&
+                      isValidId(circleId) &&
+                      isValidId(sessionId) &&
+                      request.auth.uid in existing().memberUids;
+
+        allow list: if isSignedIn() &&
+                       request.auth.uid in existing().memberUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(circleId) &&
+                         isValidId(sessionId) &&
+                         isValidReadingSession(incoming(), circleId) &&
+                         incoming().authorUid == request.auth.uid &&
+                         request.auth.uid in incoming().memberUids &&
+                         incoming().keys().hasAll(['circleId', 'readerId', 'readerName', 'authorUid', 'memberUids', 'dateKey', 'minutes', 'loggedTimeLabel', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['circleId', 'readerId', 'readerName', 'authorUid', 'memberUids', 'dateKey', 'minutes', 'loggedTimeLabel', 'bookTitle', 'note', 'createdAt', 'updatedAt']) &&
+                         isCircleMember(circleId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(circleId) &&
+                         isValidId(sessionId) &&
+                         isValidReadingSession(incoming(), circleId) &&
+                         existing().authorUid == request.auth.uid &&
+                         incoming().circleId == existing().circleId &&
+                         incoming().readerId == existing().readerId &&
+                         incoming().readerName == existing().readerName &&
+                         incoming().authorUid == existing().authorUid &&
+                         incoming().dateKey == existing().dateKey &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           // Action 1: Author edits session duration or notes
+                           incoming().diff(existing()).affectedKeys().hasOnly(['minutes', 'bookTitle', 'note', 'loggedTimeLabel', 'updatedAt']) ||
+                           // Action 2: Author syncs circle memberUids when partner joins
+                           (
+                             incoming().memberUids.hasAll(existing().memberUids) &&
+                             incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'updatedAt'])
+                           )
+                         );
+
+        allow delete: if isSignedIn() &&
+                         isValidId(circleId) &&
+                         isValidId(sessionId) &&
+                         existing().authorUid == request.auth.uid;
+      }
+    }
+  }
+}

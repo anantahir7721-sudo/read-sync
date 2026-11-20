@@ -1,0 +1,256 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Private owner-scoped settings and active reader identity binding for a signed-in Google user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated Firebase Auth UID matching the document ID."
+        },
+        "activeReaderId": {
+          "type": "string",
+          "enum": ["reader_narsinh", "reader_vishwaraj"],
+          "description": "The verified reader profile currently active for this signed-in user."
+        },
+        "reminderEnabled": {
+          "type": "boolean",
+          "description": "Whether daily behind-on-goal reading reminders are enabled."
+        },
+        "reminderHour": {
+          "type": "integer",
+          "description": "Hour of day (0-23) for daily reading goal reminder."
+        },
+        "reminderMinute": {
+          "type": "integer",
+          "description": "Minute of hour (0-59) for daily reading goal reminder."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp submitted via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-update timestamp submitted via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "activeReaderId",
+        "reminderEnabled",
+        "reminderHour",
+        "reminderMinute",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ReadingCircle": {
+      "title": "ReadingCircle",
+      "description": "Shared two-person reading circle coordinating Narsinh Chad and Vishwaraj Jadeja.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display title for the shared reading circle."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the first authenticated member who initialized the circle."
+        },
+        "memberUids": {
+          "type": "array",
+          "description": "Bounded list (max 4) of authenticated Firebase UIDs belonging to this reading circle."
+        },
+        "dailyGoalMinutes": {
+          "type": "integer",
+          "description": "Minimum daily reading minutes required to maintain a streak (30 minutes)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp submitted via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-update timestamp submitted via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "name",
+        "ownerId",
+        "memberUids",
+        "dailyGoalMinutes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ReaderProfile": {
+      "title": "ReaderProfile",
+      "description": "Per-reader streak stats, daily totals map, and weekly reading summary within the shared reading circle.",
+      "type": "object",
+      "properties": {
+        "readerId": {
+          "type": "string",
+          "enum": ["reader_narsinh", "reader_vishwaraj"],
+          "description": "Canonical identifier for one of the two authorized readers."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Full display name of the reader (Narsinh Chad or Vishwaraj Jadeja)."
+        },
+        "claimedByUid": {
+          "type": "string",
+          "description": "Authenticated Firebase UID that most recently updated this reader slot."
+        },
+        "currentStreak": {
+          "type": "integer",
+          "description": "Current consecutive days with at least 30 minutes of reading."
+        },
+        "longestStreak": {
+          "type": "integer",
+          "description": "All-time longest reading streak in days."
+        },
+        "todayMinutes": {
+          "type": "integer",
+          "description": "Cumulative minutes read on todayDateKey."
+        },
+        "todayDateKey": {
+          "type": "string",
+          "description": "Calendar date key (YYYY-MM-DD) corresponding to todayMinutes."
+        },
+        "weeklyMinutes": {
+          "type": "integer",
+          "description": "Total reading minutes logged in the current 7-day window."
+        },
+        "totalMinutes": {
+          "type": "integer",
+          "description": "Cumulative all-time reading minutes logged by this reader."
+        },
+        "lastBookTitle": {
+          "type": "string",
+          "description": "Optional title of the most recently read book."
+        },
+        "dailyTotals": {
+          "type": "object",
+          "description": "Bounded map (max 90 entries) mapping YYYY-MM-DD date keys to cumulative daily minutes."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp submitted via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-update timestamp submitted via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "readerId",
+        "displayName",
+        "claimedByUid",
+        "currentStreak",
+        "longestStreak",
+        "todayMinutes",
+        "todayDateKey",
+        "weeklyMinutes",
+        "totalMinutes",
+        "dailyTotals",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ReadingSession": {
+      "title": "ReadingSession",
+      "description": "An individual reading session logged during the day that contributes to a reader's daily total.",
+      "type": "object",
+      "properties": {
+        "circleId": {
+          "type": "string",
+          "description": "Parent reading circle document ID."
+        },
+        "readerId": {
+          "type": "string",
+          "enum": ["reader_narsinh", "reader_vishwaraj"],
+          "description": "Reader who completed this session."
+        },
+        "readerName": {
+          "type": "string",
+          "description": "Display name of the reader who completed this session."
+        },
+        "authorUid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user who logged this session."
+        },
+        "memberUids": {
+          "type": "array",
+          "description": "Denormalized circle member UIDs enabling rule-enforced list queries."
+        },
+        "dateKey": {
+          "type": "string",
+          "description": "Calendar date key (YYYY-MM-DD) when the session was read."
+        },
+        "minutes": {
+          "type": "integer",
+          "description": "Duration of this reading session in minutes (1 to 720)."
+        },
+        "loggedTimeLabel": {
+          "type": "string",
+          "description": "Formatted local time label when the session was logged (e.g. 10:15 AM)."
+        },
+        "bookTitle": {
+          "type": "string",
+          "description": "Optional book or article title for this session."
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional short reflection or chapter note."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp submitted via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-update timestamp submitted via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "circleId",
+        "readerId",
+        "readerName",
+        "authorUid",
+        "memberUids",
+        "dateKey",
+        "minutes",
+        "loggedTimeLabel",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Owner-scoped account preferences and active reader profile mapping."
+    },
+    "/circles/{circleId}": {
+      "schema": { "$ref": "#/entities/ReadingCircle" },
+      "description": "Shared two-person reading circle membership document."
+    },
+    "/circles/{circleId}/readers/{readerId}": {
+      "schema": { "$ref": "#/entities/ReaderProfile" },
+      "description": "Real-time reader streak and daily totals document for Narsinh Chad and Vishwaraj Jadeja."
+    },
+    "/circles/{circleId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/ReadingSession" },
+      "description": "Individual reading sessions logged throughout the day by members of the circle."
+    }
+  }
+}
